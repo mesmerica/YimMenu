@@ -11,8 +11,63 @@
 #include <script/globals/GPBD_FM_3.hpp>
 #include <vehicle/CVehicleModelInfo.hpp>
 
+#include <cpr/cpr.h>
+#include <nlohmann/json.hpp>
+#include <thread>
+#include <unordered_map>
+#include <mutex>
+
 namespace big
 {
+	struct IpData {
+		std::string continent;
+		std::string continentCode;
+		std::string country;
+		std::string region;
+		std::string regionName;
+		std::string city;
+		std::string isp;
+		std::string org;
+		std::string as;
+		std::string asname;
+		bool isLoaded = false;
+	};
+
+	static std::unordered_map<std::string, IpData> ipDataCache;
+	static std::mutex ipDataMutex;
+
+	void fetchIpData(std::string ipString) {
+		{
+			std::lock_guard<std::mutex> lock(ipDataMutex);
+			if (ipDataCache.contains(ipString)) return;
+			ipDataCache[ipString] = IpData{};
+		}
+
+		std::thread([ipString]() {
+			auto response = cpr::Get(cpr::Url{"http://ip-api.com/json/" + ipString + "?fields=continent,continentCode,country,region,regionName,city,isp,org,as,asname"});
+			if (response.status_code == 200) {
+				try {
+					auto jsonResponse = nlohmann::json::parse(response.text);
+					IpData newData;
+					newData.continent = jsonResponse.value("continent", "lorem ipsum");
+					newData.continentCode = jsonResponse.value("continentCode", "lorem ipsum");
+					newData.country = jsonResponse.value("country", "lorem ipsum");
+					newData.region = jsonResponse.value("region", "lorem ipsum");
+					newData.regionName = jsonResponse.value("regionName", "lorem ipsum");
+					newData.city = jsonResponse.value("city", "lorem ipsum");
+					newData.isp = jsonResponse.value("isp", "lorem ipsum");
+					newData.org = jsonResponse.value("org", "lorem ipsum");
+					newData.as = jsonResponse.value("as", "lorem ipsum");
+					newData.asname = jsonResponse.value("asname", "lorem ipsum");
+					newData.isLoaded = true;
+
+					std::lock_guard<std::mutex> lock(ipDataMutex);
+					ipDataCache[ipString] = newData;
+				} catch (...) {}
+			}
+		}).detach();
+	}
+
 	const char* get_nat_type_str(int type)
 	{
 		switch (type)
@@ -246,7 +301,7 @@ namespace big
 
 				if (CVehicleModelInfo* vehicle_model_info = static_cast<CVehicleModelInfo*>(vehicle->m_model_info))
 				{
-					vehicle_name = g_gta_data_service.vehicles()[vehicle_model_info->m_name].m_display_name; // TODO
+					vehicle_name = g_gta_data_service.vehicles()[vehicle_model_info->m_name].m_display_name;
 				}
 
 				if (veh_damage_bits & (uint32_t)eEntityProofs::GOD)
@@ -303,7 +358,6 @@ namespace big
 
 				ImGui::SameLine();
 
-				// clang-format off
 				ImGui::PushID("##ip");
 				if (ImGui::SmallButton("COPY"_T.data()))
 					ImGui::SetClipboardText(std::format("{}.{}.{}.{}:{}",
@@ -313,11 +367,30 @@ namespace big
 						ip.value().m_field4,
 						port).data());
 				ImGui::PopID();
-				// clang-format on
+
+				std::string ipString = std::format("{}.{}.{}.{}", ip.value().m_field1, ip.value().m_field2, ip.value().m_field3, ip.value().m_field4);
+				fetchIpData(ipString);
+
+				std::lock_guard<std::mutex> lock(ipDataMutex);
+				if (ipDataCache.contains(ipString) && ipDataCache[ipString].isLoaded)
+				{
+					ImGui::Text(std::format("Continent: {} ({})", ipDataCache[ipString].continent, ipDataCache[ipString].continentCode).c_str());
+					ImGui::Text(std::format("Country: {}", ipDataCache[ipString].country).c_str());
+					ImGui::Text(std::format("Region: {} ({})", ipDataCache[ipString].regionName, ipDataCache[ipString].region).c_str());
+					ImGui::Text(std::format("City: {}", ipDataCache[ipString].city).c_str());
+					ImGui::Text(std::format("ISP: {}", ipDataCache[ipString].isp).c_str());
+					ImGui::Text(std::format("Org: {}", ipDataCache[ipString].org).c_str());
+					ImGui::Text(std::format("AS: {}", ipDataCache[ipString].as).c_str());
+					ImGui::Text(std::format("AS Name: {}", ipDataCache[ipString].asname).c_str());
+				}
+				else
+				{
+					ImGui::Text("lorem ipsum");
+				}
 			}
 			else
 			{
-				if (net_player_data->m_force_relays) // TODO: does this actually do anything?
+				if (net_player_data->m_force_relays)
 					ImGui::Text("VIEW_PLAYER_INFO_IP_HIDDEN"_T.data());
 				else
 					ImGui::Text("VIEW_PLAYER_INFO_IP_UNKNOWN"_T.data());
