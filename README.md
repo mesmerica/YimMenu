@@ -1,5 +1,5 @@
 # YimMenu
-A mod menu for Grand Theft Auto V Legacy
+A mod menu for Grand Theft Auto V Legacy // a fork by mesmerica
 
 ## How to use
 1. Download the latest version of FSL from [here](https://www.unknowncheats.me/forum/grand-theft-auto-v/616977-fsl-local-gtao-saves.html) and place WINMM.dll in your GTA V directory
@@ -10,6 +10,7 @@ A mod menu for Grand Theft Auto V Legacy
 
 ---
 
-# Message to Rockstar Security Team:
-
-## You haven't seen the last of us
+make feature suggestions in issues :3 
+i hope this will be more updated than yim, but i won't be adding anything large as i am not experienced in memory mapping stuff.
+this is basically just a learning experience, and im excited to see how it takes shape.
+game updates == main yim legacy fork will need to be updated before me
